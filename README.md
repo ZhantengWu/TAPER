@@ -11,7 +11,7 @@ TAPER turns a standard QR/Barcode reader into an **anytime system**: it uses lig
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
 - **Budgeted decoding**: wall‑clock time budget per image (e.g., 200–500 ms).  
 - **Early‑stop anytime behavior**: return as soon as a backend succeeds.  
@@ -24,7 +24,7 @@ See the PDF for the full method, ablations, and budgeted evaluation protocol. �
 
 ---
 
-## 🧱 Repository Layout (reference)
+## Repository Layout (reference)
 
 ```
 taper/
@@ -46,31 +46,62 @@ taper/
 
 ---
 
-## 📦 Installation
+## Installation
 
 Tested on Python 3.9–3.11.
 
 ```bash
-# 1) (Recommended) create a virtual environment
-python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
+# QR Code Robust Reading - Python Dependencies
+# Core image processing and computer vision
+opencv-python>=4.5.1,<4.13.0
+numpy>=1.21.0,<2.0.0
 
-# 2) Install core dependencies
-pip install -U opencv-python numpy pyyaml
+# QR/Barcode decoding libraries
+pyzbar>=0.1.9
+qreader>=3.14
+dbr>=10.0.0
 
-# 3) Install at least one backend (ZXing is the default)
-pip install zxing-cpp
+# Data processing and analysis
+pandas>=1.3.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
 
-# (Optional) Additional backends
-pip install pyzbar              # requires system zbar on Linux; on Windows/macOS wheels usually bundle it
-pip install qreader             # optional, for QReaderBackend
-pip install dbr                 # optional, Dynamsoft Barcode Reader
+# Configuration and I/O
+PyYAML>=6.0
+pathlib2>=2.3.0
+
+# Progress bars and utilities
+tqdm>=4.62.0
+
+# Optional: ZXing for additional decoding support
+# Note: Requires Java Runtime Environment (JRE)
+# zxing>=0.9.3
+
+# Optional: Advanced visualization
+# plotly>=5.0.0
+
+# Development and testing (optional)
+pytest>=6.0.0
+pytest-cov>=2.12.0
+
+# Note: Some packages may require additional system dependencies:
+# - pyzbar: requires zbar library (libzbar0 on Ubuntu, zbar-tools on some systems)
+# - opencv-python: may require additional codecs for some image formats
+# - dbr: requires Dynamsoft Barcode Reader license (trial available)
+# - qreader: deep learning-based QR reader, may require additional ML dependencies
+
+# System requirements:
+# - Python 3.7+
+# - Operating System: Windows, macOS, or Linux
+# - Memory: 4GB+ RAM recommended for large datasets
+# - Storage: 1GB+ free space for models and results
 ```
 
 > If `pyzbar` complains about ZBar assertions, the code already wraps/stubs stderr and retries with gentle smoothing. fileciteturn0file3
 
 ---
 
-## ⚙️ Configuration (YAML)
+## Configuration (YAML)
 
 Create `configs/default.yaml` to control steps and budgets:
 
@@ -94,7 +125,7 @@ Cues (contrast/tilt/size) are computed once per image and used to **gate** each 
 
 ---
 
-## 🚀 Quickstart (CLI)
+## Quickstart (CLI)
 
 Batch‑run on a folder of images and save JSON results (with stage breakdowns and timings):
 
@@ -111,6 +142,7 @@ python run_folder_ours.py \
 - Core decode stages and time‑budget checks are implemented in `decode/retry.py`. fileciteturn0file1
 
 **Example result entry** (per image):
+
 ```json
 {
   "file": "IMG_0123.jpg",
@@ -122,36 +154,7 @@ python run_folder_ours.py \
 }
 ```
 
----
-
-## 🐍 Python API (embed in your app)
-
-```python
-import cv2
-from decode.backend import get_default_backend
-from decode.retry import retry_decode
-
-img = cv2.imread("path/to/img.jpg")
-backend = get_default_backend()  # ZXing by default  fileciteturn0file3
-
-cfg = {
-    "time_budget_ms": 300,
-    "steps": [
-        {"name": "threshold"},
-        {"name": "rot_try", "angles": [-10, -5, 5, 10]},
-        {"name": "deskew"},
-        {"name": "upsample", "scale": 1.5},
-    ],
-    "fallback_zxing": False
-}
-
-texts, final_stage, total_ms = retry_decode(img, backend, cfg)  # fileciteturn0file1
-print(texts, final_stage, total_ms)
-```
-
----
-
-## 📊 Benchmarks & Protocol (summary)
+## Benchmarks & Protocol (summary)
 
 - Datasets: three sets spanning in‑the‑wild and curated conditions; includes a difficult real‑world set with **low contrast / blur / small target / tilt** stress factors.  
 - Protocol: sweep budgets **T ∈ {200, 300, 400, 500} ms**; exclude disk I/O; timeout counts as failure; log stage‑of‑success for curves.  
@@ -159,7 +162,7 @@ print(texts, final_stage, total_ms)
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 - **No codes detected**: enable `rot_try` with a wider angle set; consider `threshold` first (cheap) and `upsample` for tiny codes. fileciteturn0file1  
 - **PyZbar crashes / assertions**: handled by safe wrappers and stderr redirection in the backend; update ZBar or switch to ZXing. fileciteturn0file3  
@@ -168,44 +171,3 @@ print(texts, final_stage, total_ms)
 
 ---
 
-## 📁 Reproducibility & Logs
-
-Every run records per‑image JSON with:
-- success / fail / timeout,  
-- **final stage** (direct / threshold / rot_try / deskew / upsample / zxing_fallback),  
-- per‑image **milliseconds**, and global metadata (avg ms, total successes, stage histogram). fileciteturn0file2
-
-These feed directly into tables, anytime curves, and latency CDFs in the paper. fileciteturn0file0
-
----
-
-## 🧪 Extending Backends
-
-Add your own backend by subclassing `DecoderBackend` and wiring it in `create_backend()`. ZXing is the default; fallbacks can be toggled in config. fileciteturn0file3
-
----
-
-## 📚 Citation
-
-If you use this project, please cite the paper included in `Wu.pdf`. fileciteturn0file0
-
-```bibtex
-@inproceedings{wu2025taper,
-  title={TAPER: Time-Aware Pipeline for Efficient Robust QR/Barcode Decoding},
-  author={Wu, Zhanteng and Diao, Hongyue and Wei, Hao},
-  booktitle={ICASSP (under submission)},
-  year={2025}
-}
-```
-
----
-
-## 📝 License
-
-Add your license here (e.g., MIT).
-
----
-
-## 🙌 Acknowledgments
-
-See the paper for funding and acknowledgments. fileciteturn0file0
