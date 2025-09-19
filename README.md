@@ -29,7 +29,6 @@ See the PDF for the full method, ablations, and budgeted evaluation protocol. �
 ```
 taper/
 ├─ README.md
-├─ Wu.pdf                        # Paper/extended abstract (method + experiments)
 ├─ run_folder_ours.py            # CLI entry (batch evaluation)  fileciteturn0file2
 ├─ decode/
 │  ├─ backend.py                 # Backends (ZXing, Pyzbar, QReader, DBR)  fileciteturn0file3
