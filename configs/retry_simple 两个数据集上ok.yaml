@@ -1,9 +1,0 @@
-
-time_budget_ms: 90          # 从 120 收紧到 90，提升整体速度
-steps:
-  - name: direct            # 先直读
-  - name: upsample          # 轻上采样
-    scale: 1.5
-  - name: rot_try           # 只试小角度，避免重度旋转耗时/破坏
-    angles: [-2, 0, 2]
-fallback_zxing: true        # 开启 ZXing 兜底（第二数据集对 ZXing 友好）
