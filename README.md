@@ -4,6 +4,7 @@
 
 TAPER turns a standard QR/Barcode reader into an **anytime system**: it uses lightweight cues (contrast / tilt / target size) to **conditionally** trigger enhancement steps (thresholding, rotation, deskew, upsampling), attempts a decode after each step, and **respects a per‑image time budget**. Accuracy increases with budget while easy cases exit early. The dataset **Diff-QR** which was collected by us is available at [https://drive.google.com/drive/home?dmr=1&ec=wgc-drive-globalnav-goto
 ](https://drive.google.com/file/d/17HvzAbJL5shM6vF1Kmc4YNB_Hsh1eUMK/view?usp=sharing)
+
 ---
 
 ##  Key Features
