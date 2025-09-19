@@ -9,14 +9,11 @@ import cv2
 import os
 from pathlib import Path
 
-# Suppress zbar assertion warnings at the C library level
 os.environ['ZBAR_VERBOSITY'] = '0'
 
-# Additional environment variables to suppress zbar output
 os.environ['ZBAR_DEBUG'] = '0'
 os.environ['ZBAR_QUIET'] = '1'
 
-# Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.io import list_images, save_json, get_basename, load_yaml
@@ -36,17 +33,14 @@ def run_our_method(img_dir: str, cfg_path: str, output_json: str, time_budget_ms
         time_budget_ms: Time budget per image in milliseconds (overrides config)
         verbose: Whether to print progress
     """
-    # Load configuration
     cfg = load_yaml(cfg_path)
     
-    # Override time budget if provided via command line
     if time_budget_ms is not None:
         cfg['time_budget_ms'] = time_budget_ms
     
     print(f"Loaded configuration from: {cfg_path}")
     print(f"Time budget: {cfg.get('time_budget_ms', 120)} ms")
     
-    # Get image files
     image_files = list_images(img_dir)
     if not image_files:
         print(f"No images found in {img_dir}")
@@ -54,11 +48,9 @@ def run_our_method(img_dir: str, cfg_path: str, output_json: str, time_budget_ms
     
     print(f"Found {len(image_files)} images in {img_dir}")
     
-    # Initialize decoder backend
     backend = get_default_backend()
     print(f"Using decoder backend: {backend.name}")
     
-    # Print enabled steps
     enabled_steps = []
     if "steps" in cfg:
         for step in cfg["steps"]:
@@ -67,14 +59,11 @@ def run_our_method(img_dir: str, cfg_path: str, output_json: str, time_budget_ms
             else:
                 enabled_steps.append(step)
 
-    # print(cfg.get("fallback_zxing"))
-
     if cfg.get("fallback_zxing", False):
         enabled_steps.append("zxing_fallback")
     
     print(f"Enabled steps: {' -> '.join(enabled_steps)}")
     
-    # Process images
     results = []
     total_timer = Timer()
     total_timer.start()
@@ -85,27 +74,23 @@ def run_our_method(img_dir: str, cfg_path: str, output_json: str, time_budget_ms
         if verbose:
             print(f"Processing {i+1}/{len(image_files)}: {get_basename(img_path)}")
         
-        # Load image
         img = cv2.imread(img_path)
         if img is None:
             print(f"Warning: Could not load image {img_path}")
             continue
         
-        # Apply our retry strategy
         texts, final_stage, elapsed_ms_val = retry_decode(img, backend, cfg)
         
-        # Record result with time budget metadata
         result = {
             "file": get_basename(img_path),
             "ok": len(texts) > 0,
             "texts": texts,
             "stage": final_stage,
             "ms": round(elapsed_ms_val, 1),
-            "time_budget_ms": cfg.get("time_budget_ms", 120)  # Core contribution: per-image time budget
+            "time_budget_ms": cfg.get("time_budget_ms", 120)  
         }
         results.append(result)
         
-        # Count stages for analysis
         stage_counts[final_stage] = stage_counts.get(final_stage, 0) + 1
         
         if verbose:
@@ -116,12 +101,10 @@ def run_our_method(img_dir: str, cfg_path: str, output_json: str, time_budget_ms
     
     total_time = total_timer.stop()
     
-    # Calculate summary statistics first
     successful = sum(1 for r in results if r["ok"])
     total_ms = sum(r["ms"] for r in results)
     avg_ms = total_ms / len(results) if results else 0
     
-    # Add metadata to results
     results_with_meta = {
         "meta": {
             "method": "Our Method (Step-by-step Retry with Time Budget)",
@@ -135,7 +118,6 @@ def run_our_method(img_dir: str, cfg_path: str, output_json: str, time_budget_ms
         "results": results
     }
     
-    # Save results with metadata
     save_json(output_json, results_with_meta)
     fps = len(results) / total_time if total_time > 0 else 0
     
@@ -145,7 +127,6 @@ def run_our_method(img_dir: str, cfg_path: str, output_json: str, time_budget_ms
     print(f"  Average time per image: {avg_ms:.1f} ms")
     print(f"  Processing speed: {fps:.1f} FPS")
     
-    # Print stage breakdown
     print(f"\nStage breakdown:")
     for stage, count in sorted(stage_counts.items()):
         percentage = count / len(results) * 100
