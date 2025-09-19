@@ -1,271 +1,212 @@
-# QR Code Robust Reading Project
+# TAPER: Time‑Aware Pipeline for Efficient, Robust QR/Barcode Decoding
 
-A step-by-step retry strategy for robust QR code and barcode reading with time budget control. This project implements multiple decoding approaches and provides comprehensive evaluation metrics for ICASSP paper submission.
+> Training‑free, **budgeted** decoding that adapts compute to image difficulty and **stops at first success**.
 
-## Overview
+TAPER turns a standard QR/Barcode reader into an **anytime system**: it uses lightweight cues (contrast / tilt / target size) to **conditionally** trigger enhancement steps (thresholding, rotation, deskew, upsampling), attempts a decode after each step, and **respects a per‑image time budget**. Accuracy increases with budget while easy cases exit early.
 
-This project compares different QR code/barcode reading strategies:
-- **Baseline A**: Direct pyzbar decoding
-- **Baseline C**: Upsampling + pyzbar decoding  
-- **Our Method**: Step-by-step retry strategy with early stopping and time budget control
+- Paper / method overview: see the included PDF. fileciteturn0file0  
+- Core retry algorithm (time‑aware conditional pipeline): `decode/retry.py`. fileciteturn0file1  
+- Backends (ZXing, Pyzbar, QReader, Dynamsoft): `decode/backend.py`. fileciteturn0file3  
+- CLI runner for batches: `run_folder_ours.py`. fileciteturn0file2
 
-## Features
+---
 
-- **Multi-stage retry strategy**: Direct → Upsample → Threshold → Deskew → Rotation attempts
-- **Time budget control**: Configurable maximum processing time per image
-- **Early stopping**: Stop as soon as successful decode is achieved
-- **Comprehensive evaluation**: Success rate, misread rate, processing speed metrics
-- **Configurable pipeline**: YAML-based configuration for easy experimentation
-- **Multiple backends**: Support for pyzbar and ZXing decoders
+## ✨ Key Features
 
-## Installation
+- **Budgeted decoding**: wall‑clock time budget per image (e.g., 200–500 ms).  
+- **Early‑stop anytime behavior**: return as soon as a backend succeeds.  
+- **Lightweight cues**: fast, on‑device estimates of contrast, tilt/skew, and target size.  
+- **Conditional steps**: trigger only the fixes that are likely to help (threshold / rotate / deskew / upsample).  
+- **Pluggable backends**: ZXing‑CPP (default), Pyzbar/ZBar, QReader, Dynamsoft DBR.  
+- **Reproducible evaluation**: logs per‑stage timings, success/timeout, and stage‑of‑success for tables and curves.
 
-### Environment Setup
+See the PDF for the full method, ablations, and budgeted evaluation protocol. fileciteturn0file0
+
+---
+
+## 🧱 Repository Layout (reference)
+
+```
+taper/
+├─ README.md
+├─ Wu.pdf                        # Paper/extended abstract (method + experiments)
+├─ run_folder_ours.py            # CLI entry (batch evaluation)  fileciteturn0file2
+├─ decode/
+│  ├─ backend.py                 # Backends (ZXing, Pyzbar, QReader, DBR)  fileciteturn0file3
+│  └─ retry.py                   # Budgeted conditional retry core            fileciteturn0file1
+├─ preprocess/
+│  └─ ops.py                     # limit_image_size, auto_threshold, rotate_try, deskew_light, etc.
+├─ utils/
+│  ├─ io.py                      # list_images, save_json, load_yaml, etc.
+│  └─ timer.py                   # now_ms, elapsed_ms, Timer
+└─ configs/
+   └─ default.yaml               # thresholds/angles/scales; budget; enabled steps
+```
+
+> Note: `preprocess/ops.py`, `utils/io.py`, `utils/timer.py` are referenced by the code. Ensure these exist in your repo (names can be adapted as long as imports match). fileciteturn0file1
+
+---
+
+## 📦 Installation
+
+Tested on Python 3.9–3.11.
 
 ```bash
-# Create conda environment
-conda create -n qrrobust python=3.10 -y
-conda activate qrrobust
+# 1) (Recommended) create a virtual environment
+python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 
-# Install dependencies
-pip install opencv-python pyzbar pillow numpy scikit-image matplotlib pandas tqdm pyyaml seaborn
+# 2) Install core dependencies
+pip install -U opencv-python numpy pyyaml
+
+# 3) Install at least one backend (ZXing is the default)
+pip install zxing-cpp
+
+# (Optional) Additional backends
+pip install pyzbar              # requires system zbar on Linux; on Windows/macOS wheels usually bundle it
+pip install qreader             # optional, for QReaderBackend
+pip install dbr                 # optional, Dynamsoft Barcode Reader
 ```
 
-### Optional: ZXing Support
+> If `pyzbar` complains about ZBar assertions, the code already wraps/stubs stderr and retries with gentle smoothing. fileciteturn0file3
 
-For ZXing fallback support, download the ZXing command line jar:
-```bash
-# Download ZXing jar (optional)
-wget https://repo1.maven.org/maven2/com/google/zxing/javase/3.5.1/javase-3.5.1.jar -O zxing.jar
-```
+---
 
-## Project Structure
+## ⚙️ Configuration (YAML)
 
-```
-qrrobust/
-├── data/                      # Test datasets
-├── results/                   # Output results (JSON/CSV/plots)
-├── configs/
-│   └── retry_simple.yaml      # Configuration file
-├── src/
-│   ├── utils/
-│   │   ├── io.py              # File I/O utilities
-│   │   └── timer.py           # Timing utilities
-│   ├── preprocess/
-│   │   └── ops.py             # Image preprocessing operations
-│   ├── decode/
-│   │   ├── backend.py         # Decoder backends (pyzbar/ZXing)
-│   │   ├── retry.py           # Core retry strategy
-│   │   ├── run_folder_baseA.py# Baseline A runner
-│   │   ├── run_folder_baseC.py# Baseline C runner
-│   │   └── run_folder_ours.py # Our method runner
-│   └── eval/
-│       ├── metrics.py         # Evaluation metrics
-│       └── summarize.py       # Results comparison
-└── README.md
-```
-
-## Quick Start
-
-### 1. Prepare Test Data
-
-Place your QR code/barcode images in a directory (e.g., `data/test_images/`):
-
-```bash
-mkdir -p data/test_images
-# Copy your test images to data/test_images/
-```
-
-### 2. Run Methods
-
-```bash
-# Baseline A: Direct pyzbar decoding
-python src/decode/run_folder_baseA.py --img_dir data/test_images --out results/baseA.json
-
-# Baseline C: Upsampling + pyzbar
-python src/decode/run_folder_baseC.py --img_dir data/test_images --out results/baseC.json
-
-# Our method: Step-by-step retry strategy
-python src/decode/run_folder_ours.py --img_dir data/test_images --cfg configs/retry_simple.yaml --out results/ours.json
-```
-
-### 3. Evaluate Results
-
-```bash
-# Individual method evaluation
-python src/eval/metrics.py --json results/baseA.json --method_name "Baseline A"
-python src/eval/metrics.py --json results/baseC.json --method_name "Baseline C"
-python src/eval/metrics.py --json results/ours.json --method_name "Our Method"
-
-# Compare all methods
-python src/eval/summarize.py \
-  --items results/baseA.json:BaselineA,results/baseC.json:BaselineC,results/ours.json:OurMethod \
-  --out results/comparison.csv
-```
-
-## Configuration
-
-Edit `configs/retry_simple.yaml` to customize the retry strategy:
+Create `configs/default.yaml` to control steps and budgets:
 
 ```yaml
-time_budget_ms: 120           # Maximum time per image (ms)
+# Per-image wall-clock budget (ms)
+time_budget_ms: 300
+
+# Steps will be executed in this **fixed order** if their gate fires:
+# direct → threshold → rot_try → deskew → upsample → (optional fallback)
 steps:
-  - name: direct              # Direct decoding
-  - name: upsample           # Upsampling
-    scale: 1.5               # Scale factor
-  - name: threshold          # Adaptive thresholding
-  - name: deskew            # Light deskewing
-  - name: rot_try           # Rotation attempts
-    angles: [-10, -5, 5, 10] # Rotation angles (degrees)
-fallback_zxing: false        # Enable ZXing fallback
+  - { name: threshold }             # adaptive local binarization
+  - { name: rot_try, angles: [-45, -30, -10, 0, 10, 30, 45] }
+  - { name: deskew }                # light affine deskew
+  - { name: upsample, scale: 1.5 }  # bicubic upsample for small targets
+
+# Optional ZXing/Pyzbar fallback when budget remains
+fallback_zxing: false
 ```
 
-## Evaluation Metrics
+Cues (contrast/tilt/size) are computed once per image and used to **gate** each step if it’s both *indicated* and *affordable within the remaining budget*. fileciteturn0file1
 
-The project calculates the following metrics:
+---
 
-- **Decode Success Rate (%)**: Percentage of images successfully decoded
-- **Misread Rate (%)**: Percentage of incorrect decodes (requires ground truth)
-- **Average Time (ms)**: Average processing time per image
-- **FPS**: Processing speed (frames per second)
-- **Stage Breakdown**: Success rate at each processing stage
+## 🚀 Quickstart (CLI)
 
-## Advanced Usage
-
-### Custom Preprocessing
-
-Modify `src/preprocess/ops.py` to add custom preprocessing operations:
-
-```python
-def custom_enhancement(img):
-    # Your custom preprocessing
-    return enhanced_img
-```
-
-### Ground Truth Evaluation
-
-For misread rate calculation, provide ground truth files:
+Batch‑run on a folder of images and save JSON results (with stage breakdowns and timings):
 
 ```bash
-# Create ground truth directory
-mkdir -p data/ground_truth
-
-# Create .txt files with same names as images
-echo "Expected QR content" > data/ground_truth/image1.txt
-
-# Run evaluation with ground truth
-python src/eval/metrics.py --json results/ours.json --gt_dir data/ground_truth
+python run_folder_ours.py \
+  --img_dir path/to/images \
+  --cfg configs/default.yaml \
+  --out out/results.json \
+  --time_budget_ms 300 \
+  -v
 ```
 
-### Batch Processing
+- The runner loads YAML, lists images, builds the default decoder backend (ZXing), runs the **retry pipeline**, and writes a JSON with metadata: total images, success count, avg time, and stage breakdowns. fileciteturn0file2  
+- Core decode stages and time‑budget checks are implemented in `decode/retry.py`. fileciteturn0file1
 
-Process multiple datasets:
-
-```bash
-# Process multiple directories
-for dataset in dataset1 dataset2 dataset3; do
-    python src/decode/run_folder_ours.py \
-        --img_dir data/$dataset \
-        --cfg configs/retry_simple.yaml \
-        --out results/${dataset}_ours.json
-done
-```
-
-### Ablation Studies
-
-Create different configurations for ablation studies:
-
-```bash
-# Copy base config
-cp configs/retry_simple.yaml configs/no_rotation.yaml
-
-# Edit no_rotation.yaml to remove rot_try step
-# Then run:
-python src/decode/run_folder_ours.py \
-    --img_dir data/test_images \
-    --cfg configs/no_rotation.yaml \
-    --out results/no_rotation.json
-```
-
-## Output Format
-
-### JSON Results Format
-
-Each method outputs results in JSON format:
-
+**Example result entry** (per image):
 ```json
-[
-  {
-    "file": "image1.jpg",
-    "ok": true,
-    "texts": ["QR_CODE_CONTENT"],
-    "stage": "upsample",
-    "ms": 45.2
-  },
-  ...
-]
-```
-
-### CSV Summary Format
-
-The comparison tool generates CSV tables:
-
-| Method | Total Images | Successful Decodes | Decode Success Rate (%) | Avg Time (ms) | FPS |
-|--------|-------------|-------------------|------------------------|---------------|-----|
-| BaselineA | 100 | 75 | 75.00 | 12.3 | 81.3 |
-| BaselineC | 100 | 82 | 82.00 | 18.7 | 53.5 |
-| OurMethod | 100 | 89 | 89.00 | 35.4 | 28.2 |
-
-## Troubleshooting
-
-### Common Issues
-
-1. **pyzbar not working**: Install system dependencies
-   ```bash
-   # Ubuntu/Debian
-   sudo apt-get install libzbar0
-   
-   # macOS
-   brew install zbar
-   
-   # Windows: Download from https://github.com/NuGet/Home/issues/4301
-   ```
-
-2. **Memory issues with large datasets**: Process in batches or reduce image sizes
-
-3. **ZXing not found**: Ensure Java is installed and zxing.jar is in the correct path
-
-### Performance Tips
-
-- Resize large images to max 640px for faster processing
-- Use `--verbose` flag to monitor progress
-- Adjust `time_budget_ms` based on your speed/accuracy requirements
-
-## Citation
-
-If you use this code in your research, please cite:
-
-```bibtex
-@inproceedings{qrrobust2024,
-  title={Robust QR Code Reading with Step-by-Step Retry Strategy},
-  author={Your Name},
-  booktitle={ICASSP 2024},
-  year={2024}
+{
+  "file": "IMG_0123.jpg",
+  "ok": true,
+  "texts": ["https://example.com"],
+  "stage": "rot_try",
+  "ms": 142.7,
+  "time_budget_ms": 300
 }
 ```
 
-## License
+---
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 🐍 Python API (embed in your app)
 
-## Contributing
+```python
+import cv2
+from decode.backend import get_default_backend
+from decode.retry import retry_decode
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+img = cv2.imread("path/to/img.jpg")
+backend = get_default_backend()  # ZXing by default  fileciteturn0file3
 
-## Contact
+cfg = {
+    "time_budget_ms": 300,
+    "steps": [
+        {"name": "threshold"},
+        {"name": "rot_try", "angles": [-10, -5, 5, 10]},
+        {"name": "deskew"},
+        {"name": "upsample", "scale": 1.5},
+    ],
+    "fallback_zxing": False
+}
 
-For questions or issues, please open an issue on GitHub or contact [your-email@example.com].
+texts, final_stage, total_ms = retry_decode(img, backend, cfg)  # fileciteturn0file1
+print(texts, final_stage, total_ms)
+```
+
+---
+
+## 📊 Benchmarks & Protocol (summary)
+
+- Datasets: three sets spanning in‑the‑wild and curated conditions; includes a difficult real‑world set with **low contrast / blur / small target / tilt** stress factors.  
+- Protocol: sweep budgets **T ∈ {200, 300, 400, 500} ms**; exclude disk I/O; timeout counts as failure; log stage‑of‑success for curves.  
+- Outcomes: TAPER improves success over strong open baselines by **2–7% overall** and up to **30% on stress subsets**, with a clear **knee** in the 200–500 ms range and **tighter tail latency**. See the PDF for tables/curves. fileciteturn0file0
+
+---
+
+## 🔧 Troubleshooting
+
+- **No codes detected**: enable `rot_try` with a wider angle set; consider `threshold` first (cheap) and `upsample` for tiny codes. fileciteturn0file1  
+- **PyZbar crashes / assertions**: handled by safe wrappers and stderr redirection in the backend; update ZBar or switch to ZXing. fileciteturn0file3  
+- **Tight budgets (200–300 ms)**: rotation attempts usually dominate the gains; as budget increases, deskew/upsample contribute more. fileciteturn0file0  
+- **Windows/macOS install**: prefer `zxing-cpp` wheel; `pyzbar` is optional.
+
+---
+
+## 📁 Reproducibility & Logs
+
+Every run records per‑image JSON with:
+- success / fail / timeout,  
+- **final stage** (direct / threshold / rot_try / deskew / upsample / zxing_fallback),  
+- per‑image **milliseconds**, and global metadata (avg ms, total successes, stage histogram). fileciteturn0file2
+
+These feed directly into tables, anytime curves, and latency CDFs in the paper. fileciteturn0file0
+
+---
+
+## 🧪 Extending Backends
+
+Add your own backend by subclassing `DecoderBackend` and wiring it in `create_backend()`. ZXing is the default; fallbacks can be toggled in config. fileciteturn0file3
+
+---
+
+## 📚 Citation
+
+If you use this project, please cite the paper included in `Wu.pdf`. fileciteturn0file0
+
+```bibtex
+@inproceedings{wu2025taper,
+  title={TAPER: Time-Aware Pipeline for Efficient Robust QR/Barcode Decoding},
+  author={Wu, Zhanteng and Diao, Hongyue and Wei, Hao},
+  booktitle={ICASSP (under submission)},
+  year={2025}
+}
+```
+
+---
+
+## 📝 License
+
+Add your license here (e.g., MIT).
+
+---
+
+## 🙌 Acknowledgments
+
+See the paper for funding and acknowledgments. fileciteturn0file0
