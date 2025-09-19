@@ -38,16 +38,13 @@ def safe_pyzbar_decode(img: np.ndarray) -> List:
     # More aggressive stderr suppression for C library assertions
     original_stderr = sys.stderr
     try:
-        # Redirect both Python stderr and C library stderr
         sys.stderr = open(os.devnull, 'w')
         
-        # Also try to redirect file descriptor 2 (stderr at OS level)
         original_stderr_fd = os.dup(2)
         try:
             devnull_fd = os.open(os.devnull, os.O_WRONLY)
             os.dup2(devnull_fd, 2)
         except:
-            # If OS-level redirection fails, continue with Python-level only
             devnull_fd = None
         
         try:
@@ -55,33 +52,25 @@ def safe_pyzbar_decode(img: np.ndarray) -> List:
         except Exception as e:
             error_msg = str(e).lower()
             if "zbar" in error_msg and "assertion" in error_msg:
-                # Known zbar assertion error - try with different image preprocessing
                 try:
-                    # Try with different image format/preprocessing
                     if len(img.shape) == 3:
                         gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
                     else:
                         gray = img
                     
-                    # Apply gentle smoothing to avoid assertion triggers
                     smoothed = cv2.GaussianBlur(gray, (3, 3), 0)
                     
-                    # Try decoding the smoothed version
                     return pyzbar.decode(smoothed)
                 except:
-                    # If still fails, return empty
                     return []
             else:
-                # Other errors, re-raise
                 raise e
         finally:
-            # Restore original stderr file descriptor
             os.dup2(original_stderr_fd, 2)
             if devnull_fd is not None:
                 os.close(devnull_fd)
             os.close(original_stderr_fd)
     finally:
-        # Restore Python stderr
         if sys.stderr != original_stderr:
             sys.stderr.close()
         sys.stderr = original_stderr
@@ -128,17 +117,13 @@ class PyzbarBackend(DecoderBackend):
             List of decoded text strings
         """
         try:
-            # Convert BGR to RGB for pyzbar
             img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
             
-            # Decode barcodes and QR codes using safe wrapper
             decoded_objects = safe_pyzbar_decode(img_rgb)
             
-            # Extract text data
             texts = []
             for obj in decoded_objects:
                 try:
-                    # Try to decode as UTF-8, fallback to latin-1
                     text = obj.data.decode('utf-8')
                 except UnicodeDecodeError:
                     text = obj.data.decode('latin-1')
@@ -147,7 +132,6 @@ class PyzbarBackend(DecoderBackend):
             return texts
             
         except Exception as e:
-            # Return empty list on any error
             return []
     
     @property
@@ -190,19 +174,15 @@ class QReaderBackend(DecoderBackend):
             return []
         
         try:
-            # QReader expects RGB format
             img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
             print(f"Image shape: {img_rgb.shape}, dtype: {img_rgb.dtype}")
             
-            # Decode using qreader - try both methods
             try:
-                # Method 1: detect_and_decode
                 result = self.qreader.detect_and_decode(image=img_rgb)
                 print(f"detect_and_decode result: {result}, type: {type(result)}")
             except Exception as e1:
                 print(f"detect_and_decode failed: {e1}")
                 try:
-                    # Method 2: separate detect and decode
                     detections = self.qreader.detect(image=img_rgb)
                     print(f"Detections: {detections}")
                     if detections:
@@ -214,7 +194,6 @@ class QReaderBackend(DecoderBackend):
                     print(f"separate detect/decode failed: {e2}")
                     result = None
             
-            # Process result - QReader returns tuple, list, or string
             print(f"QReader result: {result}, type: {type(result)}")
             
             if result is None or result == "" or result == ():
@@ -224,7 +203,6 @@ class QReaderBackend(DecoderBackend):
                 print(f"Single QR code decoded: {result}")
                 return [result.strip()]
             elif isinstance(result, (list, tuple)) and len(result) > 0:
-                # Handle case where QR codes are detected (QReader returns tuple/list)
                 texts = []
                 for i, r in enumerate(result):
                     print(f"Result {i}: {r}, type: {type(r)}")
@@ -280,23 +258,19 @@ class DBRBackend(DecoderBackend):
             return []
         
         try:
-            # DBR can work with BGR format directly
             text_results = self.reader.decode_buffer(img_bgr)
             
-            # Extract text from results
             texts = []
             if text_results is not None:
                 for result in text_results:
                     if hasattr(result, 'barcode_text') and result.barcode_text:
                         text = result.barcode_text.strip()
-                        # 只要有文本内容就算成功（Trial License会添加错误码前缀但实际解码成功）
                         if len(text.strip()) > 0:
                             texts.append(text)
             
             return texts
             
         except Exception:
-            # Return empty list on any error (consistent with other backends)
             return []
     
     @property
@@ -334,13 +308,10 @@ class ZXingBackend(DecoderBackend):
             return []
         
         try:
-            # Convert BGR to RGB for zxing-cpp
             img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
             
-            # Decode using zxing-cpp
             results = self.zxing.read_barcodes(img_rgb)
             
-            # Extract text from results
             texts = []
             for result in results:
                 if result.valid and result.text:
@@ -379,8 +350,6 @@ def create_backend(backend_name: str = "pyzbar", **kwargs) -> DecoderBackend:
     else:
         raise ValueError(f"Unknown backend: {backend_name}")
 
-
-# Default backend
 def get_default_backend() -> DecoderBackend:
     """Get default decoder backend (ZXing)."""
     return ZXingBackend()
