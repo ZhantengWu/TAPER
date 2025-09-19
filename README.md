@@ -152,16 +152,4 @@ python run_folder_ours.py \
 
 - Datasets: three sets spanning in‑the‑wild and curated conditions; includes a difficult real‑world set with **low contrast / blur / small target / tilt** stress factors.  
 - Protocol: sweep budgets **T ∈ {200, 300, 400, 500} ms**; exclude disk I/O; timeout counts as failure; log stage‑of‑success for curves.  
-- Outcomes: TAPER improves success over strong open baselines by **2–7% overall** and up to **30% on stress subsets**, with a clear **knee** in the 200–500 ms range and **tighter tail latency**. See the PDF for tables/curves. fileciteturn0file0
-
----
-
-## Troubleshooting
-
-- **No codes detected**: enable `rot_try` with a wider angle set; consider `threshold` first (cheap) and `upsample` for tiny codes.   
-- **PyZbar crashes / assertions**: handled by safe wrappers and stderr redirection in the backend; update ZBar or switch to ZXing. fileciteturn0file3  
-- **Tight budgets (200–300 ms)**: rotation attempts usually dominate the gains; as budget increases, deskew/upsample contribute more. fileciteturn0file0  
-- **Windows/macOS install**: prefer `zxing-cpp` wheel; `pyzbar` is optional.
-
----
-
+- Outcomes: TAPER improves success over strong open baselines by **2–7% overall** and up to **30% on stress subsets**, with a clear **knee** in the 200–500 ms range and **tighter tail latency**. 
