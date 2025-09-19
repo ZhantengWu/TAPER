@@ -142,7 +142,6 @@ python run_folder_ours.py \
 - Core decode stages and time‑budget checks are implemented in `decode/retry.py`. fileciteturn0file1
 
 **Example result entry** (per image):
-
 ```json
 {
   "file": "IMG_0123.jpg",
