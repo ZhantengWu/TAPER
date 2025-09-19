@@ -15,7 +15,7 @@ TAPER turns a standard QR/Barcode reader into an **anytime system**: it uses lig
 - **Pluggable backends**: ZXing‑CPP (default), Pyzbar/ZBar, QReader, Dynamsoft DBR.  
 - **Reproducible evaluation**: logs per‑stage timings, success/timeout, and stage‑of‑success for tables and curves.
 
-See the PDF for the full method, ablations, and budgeted evaluation protocol. fileciteturn0file0
+See the PDF for the full method, ablations, and budgeted evaluation protocol. 
 
 ---
 
