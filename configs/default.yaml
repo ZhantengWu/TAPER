@@ -1,0 +1,13 @@
+time_budget_ms: 600000
+steps:
+  - name: direct
+  - name: upsample
+    scale: 1.5
+  - name: threshold
+    method: adaptive
+  - name: deskew
+  - name: rot_try
+    angles: [-45,-30,-10, 0, 10, 30, 45]
+fallback_zxing: true
+
+
