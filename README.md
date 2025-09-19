@@ -24,10 +24,10 @@ See the PDF for the full method, ablations, and budgeted evaluation protocol.
 ```
 taper/
 ├─ README.md
-├─ run_folder_ours.py            # CLI entry (batch evaluation)  fileciteturn0file2
+├─ run_folder_ours.py            # CLI entry (batch evaluation)  
 ├─ decode/
-│  ├─ backend.py                 # Backends (ZXing, Pyzbar, QReader, DBR)  fileciteturn0file3
-│  └─ retry.py                   # Budgeted conditional retry core            fileciteturn0file1
+│  ├─ backend.py                 # Backends (ZXing, Pyzbar, QReader, DBR)  
+│  └─ retry.py                   # Budgeted conditional retry core            
 ├─ preprocess/
 │  └─ ops.py                     # limit_image_size, auto_threshold, rotate_try, deskew_light, etc.
 ├─ utils/
@@ -37,7 +37,7 @@ taper/
    └─ default.yaml               # thresholds/angles/scales; budget; enabled steps
 ```
 
-> Note: `preprocess/ops.py`, `utils/io.py`, `utils/timer.py` are referenced by the code. Ensure these exist in your repo (names can be adapted as long as imports match). fileciteturn0file1
+> Note: `preprocess/ops.py`, `utils/io.py`, `utils/timer.py` are referenced by the code. Ensure these exist in your repo (names can be adapted as long as imports match). 
 
 ---
 
@@ -92,7 +92,7 @@ pytest-cov>=2.12.0
 # - Storage: 1GB+ free space for models and results
 ```
 
-> If `pyzbar` complains about ZBar assertions, the code already wraps/stubs stderr and retries with gentle smoothing. fileciteturn0file3
+> If `pyzbar` complains about ZBar assertions, the code already wraps/stubs stderr and retries with gentle smoothing. 
 
 ---
 
@@ -116,7 +116,7 @@ steps:
 fallback_zxing: false
 ```
 
-Cues (contrast/tilt/size) are computed once per image and used to **gate** each step if it’s both *indicated* and *affordable within the remaining budget*. fileciteturn0file1
+Cues (contrast/tilt/size) are computed once per image and used to **gate** each step if it’s both *indicated* and *affordable within the remaining budget*. 
 
 ---
 
@@ -134,7 +134,7 @@ python run_folder_ours.py \
 ```
 
 - The runner loads YAML, lists images, builds the default decoder backend (ZXing), runs the **retry pipeline**, and writes a JSON with metadata: total images, success count, avg time, and stage breakdowns. fileciteturn0file2  
-- Core decode stages and time‑budget checks are implemented in `decode/retry.py`. fileciteturn0file1
+- Core decode stages and time‑budget checks are implemented in `decode/retry.py`. 
 
 **Example result entry** (per image):
 ```json
@@ -158,7 +158,7 @@ python run_folder_ours.py \
 
 ## Troubleshooting
 
-- **No codes detected**: enable `rot_try` with a wider angle set; consider `threshold` first (cheap) and `upsample` for tiny codes. fileciteturn0file1  
+- **No codes detected**: enable `rot_try` with a wider angle set; consider `threshold` first (cheap) and `upsample` for tiny codes.   
 - **PyZbar crashes / assertions**: handled by safe wrappers and stderr redirection in the backend; update ZBar or switch to ZXing. fileciteturn0file3  
 - **Tight budgets (200–300 ms)**: rotation attempts usually dominate the gains; as budget increases, deskew/upsample contribute more. fileciteturn0file0  
 - **Windows/macOS install**: prefer `zxing-cpp` wheel; `pyzbar` is optional.
