@@ -1,0 +1,9 @@
+time_budget_ms: 600000
+steps:
+- name: direct
+- name: upsample
+  scale: 1.5
+- name: threshold
+  method: adaptive
+- name: deskew
+fallback_zxing: true
