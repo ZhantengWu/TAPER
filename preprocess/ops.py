@@ -42,7 +42,7 @@ def analyze_image_properties(img: np.ndarray) -> dict:
     Returns:
         Dictionary with analysis results
     """
-    # Convert to grayscale for analysis
+
     if len(img.shape) == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
@@ -50,15 +50,12 @@ def analyze_image_properties(img: np.ndarray) -> dict:
     
     height, width = gray.shape
     
-    # 1. Contrast analysis
     contrast = gray.std()
-    is_low_contrast = contrast < 40  # Threshold for low contrast
+    is_low_contrast = contrast < 40  
     
-    # 2. Size analysis for small targets
-    min_qr_size = min(width, height) * 0.1  # Assume QR code is at least 10% of image
-    is_small_target = min_qr_size < 100  # Small if estimated QR size < 100px
+    min_qr_size = min(width, height) * 0.1 
+    is_small_target = min_qr_size < 100  
     
-    # 3. Skew analysis
     edges = cv2.Canny(gray, 50, 150, apertureSize=3)
     lines = cv2.HoughLines(edges, 1, np.pi/180, threshold=100)
     
@@ -81,10 +78,8 @@ def analyze_image_properties(img: np.ndarray) -> dict:
             estimated_skew = np.median(angles)
             angle_std = np.std(angles)
             
-            # Check if significantly skewed (>5 degrees) and consistent
             is_significantly_skewed = abs(estimated_skew) > 5.0 and angle_std < 10.0
             
-            # Check if looks like barcode (many horizontal/vertical lines)
             horizontal_lines = sum(1 for a in angles if abs(a) < 15)
             vertical_lines = sum(1 for a in angles if abs(abs(a) - 90) < 15)
             total_lines = len(angles)
@@ -135,13 +130,11 @@ def get_prioritized_rotation_angles(properties: dict, default_angles: List[float
     if abs(estimated_skew) < 2.0:
         return default_angles
     
-    # Sort angles by proximity to estimated skew
     angles_with_distance = []
     for angle in default_angles:
         distance = abs(angle - estimated_skew)
         angles_with_distance.append((distance, angle))
     
-    # Sort by distance and return angles
     angles_with_distance.sort(key=lambda x: x[0])
     return [angle for _, angle in angles_with_distance]
 
@@ -164,7 +157,6 @@ def upsample(img: np.ndarray, scale: float = 1.5) -> np.ndarray:
     new_width = int(width * scale)
     new_height = int(height * scale)
     
-    # Use INTER_CUBIC for better quality on upsampling
     return cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
 
 
@@ -178,22 +170,18 @@ def auto_threshold(img: np.ndarray) -> np.ndarray:
     Returns:
         Processed image
     """
-    # Convert to grayscale
     if len(img.shape) == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         gray = img.copy()
     
-    # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     enhanced = clahe.apply(gray)
     
-    # Apply adaptive threshold
     thresh = cv2.adaptiveThreshold(
         enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
     )
     
-    # Convert back to BGR for consistency
     return cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
 
 
@@ -209,81 +197,64 @@ def deskew_light(img: np.ndarray, angle_threshold: float = 8.0) -> np.ndarray:
     Returns:
         Deskewed image or original if correction not beneficial
     """
-    # Convert to grayscale
     if len(img.shape) == 3:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     else:
         gray = img.copy()
     
-    # More aggressive edge detection for better line detection
     edges = cv2.Canny(gray, 80, 200, apertureSize=3)
     
-    # Higher threshold for more reliable line detection
     lines = cv2.HoughLines(edges, 1, np.pi/180, threshold=150)
     
-    if lines is None or len(lines) < 5:  # Require minimum number of lines
+    if lines is None or len(lines) < 5: 
         return img.copy()
     
-    # Calculate dominant angle with stricter filtering
     angles = []
     for line in lines:
         rho, theta = line[0]
-        angle = np.degrees(theta) - 90  # Convert to rotation angle
+        angle = np.degrees(theta) - 90  
         
-        # Normalize angle to [-90, 90]
         if angle > 90:
             angle -= 180
         elif angle < -90:
             angle += 180
         
-        # Only consider angles that suggest real skew (not noise)
-        if 2.0 <= abs(angle) <= angle_threshold:  # Ignore very small angles (likely noise)
+        if 2.0 <= abs(angle) <= angle_threshold:  
             angles.append(angle)
     
-    # Require sufficient evidence of skew
-    if len(angles) < 3:  # Need at least 3 consistent lines
+    if len(angles) < 3:  
         return img.copy()
     
-    # Use median angle and check consistency
     median_angle = np.median(angles)
     angle_std = np.std(angles)
     
-    # Only proceed if angles are consistent (low standard deviation)
-    if angle_std > 3.0:  # Too much variation in detected angles
+    if angle_std > 3.0: 
         return img.copy()
     
-    # Final strict check - only correct significant, consistent skew
     if abs(median_angle) < 2.0 or abs(median_angle) > angle_threshold:
         return img.copy()
     
-    # Quality check: ensure the image actually needs correction
-    # Check if QR code detection works better before correction
     try:
         import pyzbar.pyzbar as pyzbar
         
-        # Quick test on original image
         original_codes = pyzbar.decode(img)
-        if len(original_codes) > 0:  # Already detectable, don't risk breaking it
+        if len(original_codes) > 0:  
             return img.copy()
     except:
-        pass  # If pyzbar not available, proceed with caution
+        pass  
     
-    # Apply conservative rotation
     height, width = img.shape[:2]
     center = (width // 2, height // 2)
     rotation_matrix = cv2.getRotationMatrix2D(center, median_angle, 1.0)
     
-    # Use minimal padding to avoid introducing artifacts
     cos_val = abs(rotation_matrix[0, 0])
     sin_val = abs(rotation_matrix[0, 1])
     new_width = int((height * sin_val) + (width * cos_val))
     new_height = int((height * cos_val) + (width * sin_val))
     
-    # Adjust rotation matrix for new center
     rotation_matrix[0, 2] += (new_width / 2) - center[0]
     rotation_matrix[1, 2] += (new_height / 2) - center[1]
     
-    # Use high-quality interpolation and preserve edges
     corrected = cv2.warpAffine(img, rotation_matrix, (new_width, new_height), 
                               flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_CONSTANT,
                               borderValue=(255, 255, 255))
@@ -309,20 +280,16 @@ def rotate_try(img: np.ndarray, angles: List[float] = None) -> Generator[np.ndar
     center = (width // 2, height // 2)
     
     for angle in angles:
-        # Create rotation matrix
         rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
         
-        # Calculate new bounding dimensions
         cos_val = abs(rotation_matrix[0, 0])
         sin_val = abs(rotation_matrix[0, 1])
         new_width = int((height * sin_val) + (width * cos_val))
         new_height = int((height * cos_val) + (width * sin_val))
         
-        # Adjust rotation matrix for new center
         rotation_matrix[0, 2] += (new_width / 2) - center[0]
         rotation_matrix[1, 2] += (new_height / 2) - center[1]
         
-        # Apply rotation
         rotated = cv2.warpAffine(img, rotation_matrix, (new_width, new_height),
                                flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT,
                                borderValue=(255, 255, 255))
@@ -346,7 +313,6 @@ def resize_for_speed(img: np.ndarray, max_dimension: int = 640) -> np.ndarray:
     if max(height, width) <= max_dimension:
         return img.copy()
     
-    # Calculate scale factor
     scale = max_dimension / max(height, width)
     new_width = int(width * scale)
     new_height = int(height * scale)
@@ -364,14 +330,11 @@ def enhance_contrast(img: np.ndarray) -> np.ndarray:
     Returns:
         Contrast-enhanced image
     """
-    # Convert to LAB color space
     lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
     
-    # Apply CLAHE to L channel
     clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
     lab[:, :, 0] = clahe.apply(lab[:, :, 0])
-    
-    # Convert back to BGR
+
     return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
 
@@ -385,7 +348,6 @@ def sharpen_image(img: np.ndarray) -> np.ndarray:
     Returns:
         Sharpened image
     """
-    # Sharpening kernel
     kernel = np.array([[-1, -1, -1],
                       [-1,  9, -1],
                       [-1, -1, -1]])
