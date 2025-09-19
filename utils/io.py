@@ -30,7 +30,6 @@ def list_images(img_dir: str, extensions: tuple = ('.jpg', '.jpeg', '.png', '.bm
         image_files.extend(img_dir.glob(f"*{ext}"))
         image_files.extend(img_dir.glob(f"*{ext.upper()}"))
     
-    # Remove duplicates (important for case-insensitive filesystems like Windows)
     unique_files = list(dict.fromkeys(image_files))
     
     return [str(f) for f in sorted(unique_files)]
@@ -87,7 +86,6 @@ def load_json(json_path: str) -> List[Dict[str, Any]]:
     with open(json_path, 'r', encoding='utf-8') as f:
         raw_data = json.load(f)
     
-    # Handle Our method's JSON structure (meta + results)
     if isinstance(raw_data, dict) and "results" in raw_data:
         return raw_data["results"]
     else:
@@ -112,7 +110,6 @@ def load_ground_truth(gt_dir: str, filename: str) -> Optional[str]:
     if not gt_dir.exists():
         return None
     
-    # Try different ground truth file naming conventions
     base_name = Path(filename).stem
     gt_candidates = [
         gt_dir / f"{base_name}.txt",
