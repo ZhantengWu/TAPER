@@ -9,7 +9,6 @@ from typing import List, Tuple, Dict, Any, Optional
 import sys
 from pathlib import Path
 
-# Add src to path for imports
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.timer import now_ms, elapsed_ms
@@ -79,24 +78,18 @@ def safe_decode(backend: DecoderBackend, img: np.ndarray) -> List[str]:
     except Exception as e:
         error_msg = str(e).lower()
         if "zbar" in error_msg and "assertion" in error_msg:
-            # Known zbar assertion error - try with different image preprocessing
             try:
-                # Try with different image format/preprocessing
                 if len(img.shape) == 3:
                     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 else:
                     gray = img
                 
-                # Apply gentle smoothing to avoid assertion triggers
                 smoothed = cv2.GaussianBlur(gray, (3, 3), 0)
                 
-                # Try decoding the smoothed version
                 return backend.decode(smoothed)
             except:
-                # If still fails, return empty
                 return []
         else:
-            # Other errors, re-raise
             raise e
 
 
@@ -131,13 +124,10 @@ def retry_decode(img_bgr: np.ndarray, backend: DecoderBackend, cfg: Dict[str, An
     t0 = now_ms()
     time_budget_ms = cfg.get("time_budget_ms", 120)
     
-    # Limit image size for stable performance
     current_img = limit_image_size(img_bgr.copy(), max_dimension=2000)
     
-    # Analyze image properties for conditional processing
     properties = analyze_image_properties(current_img)
     
-    # Step 1: Direct decoding
     if elapsed_ms(t0) > time_budget_ms:
         return [], "timeout", elapsed_ms(t0)
     
@@ -145,7 +135,6 @@ def retry_decode(img_bgr: np.ndarray, backend: DecoderBackend, cfg: Dict[str, An
     if texts:
         return texts, "direct", elapsed_ms(t0)
     
-    # Step 2: Conditional Threshold (only for low contrast)
     if should_apply_threshold(properties):
         if elapsed_ms(t0) > time_budget_ms:
             return [], "timeout", elapsed_ms(t0)
@@ -156,7 +145,6 @@ def retry_decode(img_bgr: np.ndarray, backend: DecoderBackend, cfg: Dict[str, An
         if texts:
             return texts, "threshold", elapsed_ms(t0)
     
-    # Step 3: Smart Rotation (prioritized by estimated skew angle)
     steps = cfg.get("steps", [])
     rot_try_step = None
     for step in steps:
@@ -177,7 +165,6 @@ def retry_decode(img_bgr: np.ndarray, backend: DecoderBackend, cfg: Dict[str, An
             if texts:
                 return texts, "rot_try", elapsed_ms(t0)
     
-    # Step 4: Conditional Deskew (only for significantly skewed non-barcode images)
     if should_apply_deskew(properties):
         if elapsed_ms(t0) > time_budget_ms:
             return [], "timeout", elapsed_ms(t0)
@@ -188,7 +175,6 @@ def retry_decode(img_bgr: np.ndarray, backend: DecoderBackend, cfg: Dict[str, An
         if texts:
             return texts, "deskew", elapsed_ms(t0)
     
-    # Step 5: Conditional Upsample (only for small targets)
     if should_apply_upsample(properties):
         if elapsed_ms(t0) > time_budget_ms:
             return [], "timeout", elapsed_ms(t0)
@@ -199,7 +185,6 @@ def retry_decode(img_bgr: np.ndarray, backend: DecoderBackend, cfg: Dict[str, An
         if texts:
             return texts, "upsample", elapsed_ms(t0)
     
-    # Step 6: Fallback to ZXing if enabled and time permits
     if cfg.get("fallback_zxing", False) and elapsed_ms(t0) <= time_budget_ms:
         try:
             import pyzbar.pyzbar as pyzbar
@@ -210,7 +195,6 @@ def retry_decode(img_bgr: np.ndarray, backend: DecoderBackend, cfg: Dict[str, An
         except:
             pass
     
-    # All steps failed
     return [], "fail", elapsed_ms(t0)
 
 
@@ -232,7 +216,6 @@ def retry_decode_with_stages(img_bgr: np.ndarray, backend: DecoderBackend, cfg: 
     stage_results = []
     current_img = img_bgr.copy()
 
-    # Step 1: Direct decoding
     stage_start = now_ms()
     texts = backend.decode(current_img)
     stage_time = elapsed_ms(stage_start)
@@ -252,7 +235,6 @@ def retry_decode_with_stages(img_bgr: np.ndarray, backend: DecoderBackend, cfg: 
             "stages": stage_results
         }
 
-    # Step 2: Upsample
     if has_step(cfg, "upsample"):
         stage_start = now_ms()
         step_cfg = get_step_config(cfg, "upsample")
@@ -278,7 +260,6 @@ def retry_decode_with_stages(img_bgr: np.ndarray, backend: DecoderBackend, cfg: 
                 "stages": stage_results
             }
 
-    # Step 3: Threshold
     if has_step(cfg, "threshold"):
         stage_start = now_ms()
         img_thresh = auto_threshold(current_img)
@@ -302,7 +283,6 @@ def retry_decode_with_stages(img_bgr: np.ndarray, backend: DecoderBackend, cfg: 
 
         current_img = img_thresh
 
-    # Step 4: Deskew
     if has_step(cfg, "deskew"):
         stage_start = now_ms()
         img_deskewed = deskew_light(current_img)
@@ -326,7 +306,6 @@ def retry_decode_with_stages(img_bgr: np.ndarray, backend: DecoderBackend, cfg: 
 
         current_img = img_deskewed
 
-    # Step 5: Rotation attempts
     if has_step(cfg, "rot_try"):
         stage_start = now_ms()
         step_cfg = get_step_config(cfg, "rot_try")
@@ -375,7 +354,6 @@ def retry_decode_with_stages(img_bgr: np.ndarray, backend: DecoderBackend, cfg: 
             "attempts": rotation_attempts
         })
 
-    # Step 6: ZXing fallback
     if cfg.get("fallback_zxing", False):
         stage_start = now_ms()
         try:
@@ -406,7 +384,6 @@ def retry_decode_with_stages(img_bgr: np.ndarray, backend: DecoderBackend, cfg: 
                     "error": str(e)
                 })
 
-    # All stages failed
     return {
         "texts": [],
         "final_stage": "fail",
