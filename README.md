@@ -4,11 +4,6 @@
 
 TAPER turns a standard QR/Barcode reader into an **anytime system**: it uses lightweight cues (contrast / tilt / target size) to **conditionally** trigger enhancement steps (thresholding, rotation, deskew, upsampling), attempts a decode after each step, and **respects a per‑image time budget**. Accuracy increases with budget while easy cases exit early.
 
-- Paper / method overview: see the included PDF. fileciteturn0file0  
-- Core retry algorithm (time‑aware conditional pipeline): `decode/retry.py`. fileciteturn0file1  
-- Backends (ZXing, Pyzbar, QReader, Dynamsoft): `decode/backend.py`. fileciteturn0file3  
-- CLI runner for batches: `run_folder_ours.py`. fileciteturn0file2
-
 ---
 
 ##  Key Features
