@@ -20,7 +20,7 @@ See the PDF for the full method, ablations, and budgeted evaluation protocol.
 
 ---
 
-## Repository Layout (reference)
+## Repository Layout 
 
 ```
 taper/
@@ -38,7 +38,6 @@ taper/
    └─ default.yaml               # thresholds/angles/scales; budget; enabled steps
 ```
 
-> Note: `preprocess/ops.py`, `utils/io.py`, `utils/timer.py` are referenced by the code. Ensure these exist in your repo (names can be adapted as long as imports match). 
 
 ---
 
